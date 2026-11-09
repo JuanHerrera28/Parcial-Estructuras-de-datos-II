@@ -7,6 +7,7 @@ package co.edu.redsegura.app;
 import co.edu.redsegura.excepciones.VertexNotFoundException;
 import co.edu.redsegura.grafos.BreadthFirstSearch;
 import co.edu.redsegura.grafos.DepthFirstSearch;
+import co.edu.redsegura.grafos.DijkstraSolver;
 import co.edu.redsegura.grafos.GraphRepresentations;
 import co.edu.redsegura.grafos.MixedGraph;
 import co.edu.redsegura.modelo.Edge;
@@ -21,22 +22,16 @@ import java.util.LinkedList;
 public class Redsegura {
 
     public static void main(String[] args) {
-    
-MixedGraph g = SincelejoDataFactory.createGraph();
-DepthFirstSearch dfs = new DepthFirstSearch(g);
+        MixedGraph g = SincelejoDataFactory.createGraph();
+        DijkstraSolver dijkstra = new DijkstraSolver(g);
 
-System.out.println("DFS desde S02: " + dfs.order("S02"));
-for (LinkedList<String> c : dfs.getCycles()) {
-    System.out.println("  ciclo: " + c);
-}
-System.out.println("Hay ciclos? " + dfs.hasCycle());
-System.out.println("Componentes debiles: " + dfs.countWeakComponents());
-System.out.println(dfs.weakComponents());
+        System.out.println("--- Q5: Ruta Optima de S02 a S08 ---");
+        System.out.println("Camino: " + dijkstra.getShortestPath("S02", "S08"));
+        System.out.println("Costo total (minutos): " + dijkstra.getShortestDistance("S02", "S08"));
 
-try {
-    dfs.order("S99");
-} catch (VertexNotFoundException e) {
-    System.out.println("Q7 controlado: " + e.getMessage());
+        System.out.println("\n--- Q6: Ruta S02 a S08 con R16 bloqueada ---");
+        g.setEdgeBlocked("R16", true); 
+        System.out.println("Nuevo Camino: " + dijkstra.getShortestPath("S02", "S08"));
+        System.out.println("Nuevo Costo (minutos): " + dijkstra.getShortestDistance("S02", "S08"));
+    }
 }
-   
-}}
