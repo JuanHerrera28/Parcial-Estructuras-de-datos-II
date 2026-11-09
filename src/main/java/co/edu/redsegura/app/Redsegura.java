@@ -22,7 +22,8 @@ MixedGraph g = SincelejoDataFactory.createGraph();
 GraphRepresentations rep = new GraphRepresentations(g);
 System.out.println(rep.adjacencyListToString());
         
-        
+        System.out.println(rep.adjacencyMatrixToString());
+        System.out.println(rep.incidenceMatrixToString());
        
     }
     
