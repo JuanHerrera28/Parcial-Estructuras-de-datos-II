@@ -4,6 +4,7 @@
 
 package co.edu.redsegura.app;
 
+import co.edu.redsegura.grafos.BreadthFirstSearch;
 import co.edu.redsegura.grafos.GraphRepresentations;
 import co.edu.redsegura.grafos.MixedGraph;
 import co.edu.redsegura.modelo.Edge;
@@ -18,13 +19,13 @@ public class Redsegura {
 
     public static void main(String[] args) {
     
+
 MixedGraph g = SincelejoDataFactory.createGraph();
-GraphRepresentations rep = new GraphRepresentations(g);
-System.out.println(rep.adjacencyListToString());
-        
-        System.out.println(rep.adjacencyMatrixToString());
-        System.out.println(rep.incidenceMatrixToString());
-       
+
+BreadthFirstSearch bfs = new BreadthFirstSearch(g);
+
+System.out.println(bfs.order("S02"));
+System.out.println(bfs.treeToString("S02"));
     }
     
    
