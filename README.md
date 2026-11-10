@@ -403,7 +403,114 @@ Resumen (V = vértices, E = conexiones, n = claves, h = altura del árbol). La t
 | DFS | O(V · (V + E)) | O(V) |
 | Dijkstra | O(V · (V + E) + E log E) | O(V + E) |
 
+
+# Análisis de complejidad
+
+Notación: **V** = número de vértices, **E** = número de conexiones, **n** = número de claves de un árbol, **h** = altura del árbol, **d** = grado de un vértice.
+
+El análisis describe el código **tal como está implementado**. Todas las estructuras auxiliares son `LinkedList` (búsqueda lineal), lo que explica los factores adicionales frente al óptimo teórico; al final se indica cómo se llegaría a este.
+
+## 1. Árboles
+
+| Operación | ABB | AVL | Justificación |
+|---|---|---|---|
+| `insert` | O(h) — peor O(n) | **O(log n)** | Se desciende un camino raíz→hoja. En el AVL, además, se actualiza la altura y se aplican a lo sumo 2 rotaciones por nodo del camino. |
+| `search` | O(h) — peor O(n) | **O(log n)** | Bucle iterativo, un nodo por paso. |
+| `delete` | O(h) — peor O(n) | **O(log n)** | Descenso + búsqueda del sucesor in-order (otro descenso). |
+| `height` | O(n) | O(1) | El ABB recorre todo el árbol; el AVL guarda la altura en cada nodo. |
+| `inOrder`/`preOrder`/`postOrder` | O(n) | O(n) | Cada nodo se visita una vez. |
+| Espacio | O(n) | O(n) | Un nodo por clave; la pila recursiva ocupa O(h). |
+
+**Por qué importa:** insertar claves ordenadas (S01, S02, …, S12) degenera el ABB en una lista (h = n) mientras el AVL conserva h ≈ log₂ n. Con las 12 claves del parcial: altura 12 vs 4.
+
+## 2. Modelo y grafo
+
+| Operación | Tiempo | Espacio | Nota |
+|---|---|---|---|
+| `addVertex` | O(V) | O(1) | Comprueba duplicados recorriendo la lista. |
+| `addEdge` | O(E + V) | O(1) | Busca ID duplicado (E) y valida origen y destino (V). |
+| `neighbors(id)` | **O(V + E)** | O(d) | `hasvertex` (V) + recorrido de todas las conexiones (E). Aquí se aplican orientación y bloqueo. |
+| `removeVertex` | O(V + E) | O(1) | Elimina el vértice y las conexiones incidentes con un iterador. |
+| `removeEdge` / `setEdgeBlocked` | O(E) | O(1) | Búsqueda lineal por ID. |
+| `getvertices` / `getEdges` | O(V) / O(E) | O(V) / O(E) | Devuelven copia defensiva. |
+
+## 3. Representaciones
+
+| Representación | Tiempo | Espacio | Por qué |
+|---|---|---|---|
+| Lista de adyacencia | O(V · E) | O(V + E) | Por cada vértice se recorren todas las conexiones. |
+| Matriz de adyacencia ponderada | O(V² + E · V) | **O(V²)** | Inicializar V² celdas + por cada conexión, `get(i).get(j)` y `set` sobre `LinkedList` cuestan O(V) cada uno. |
+| Matriz de incidencia | O(V · E) | **O(V · E)** | Una celda por par (vértice, conexión). |
+
+Con los datos del parcial: 12 × 12 = 144 celdas en la matriz de adyacencia y 12 × 18 = 216 en la de incidencia.
+
+## 4. Recorridos y ruta mínima
+
+| Algoritmo | Tiempo | Espacio | Justificación |
+|---|---|---|---|
+| **BFS** | O(V · (V + E)) | O(V) | Cada vértice se encola una vez; para cada uno `neighbors` cuesta O(V + E), y cada vecino consulta `visited.contains` en O(V). |
+| **DFS** (`traverse`) | O(V · (V + E)) | O(V) | Misma estructura de costos; la pila de recursión tiene profundidad ≤ V. La reconstrucción de un ciclo suma O(V) por ciclo hallado. |
+| `weakComponents` | O(V² · (V + E)) | O(V) | `weakNeighbors(u)` llama a `neighbors` sobre **todos** los vértices (O(V · (V + E))) y se invoca una vez por vértice. |
+| **Dijkstra** | O(V · (V + E) + E · V + E log E) = **O(V · E + V² + E log E)** | O(V + E) | V extracciones de la `PriorityQueue`; la tabla de distancias es una `LinkedList` (búsqueda O(V) por relajación); la cola puede contener hasta E entradas, con costo O(log E) por inserción/extracción. |
+
+> `printRoute` en la CLI llama a `calcularRutaCorta` y a `calcularDistanciaCorta`; cada una ejecuta Dijkstra completo, así que una consulta cuesta dos ejecuciones. Es una constante (×2) que no cambia el orden.
+
+## 5. ¿Cómo se llegaría al óptimo?
+
+Si el grafo creciera, estos cambios reducirían los costos sin tocar la lógica de los algoritmos:
+
+| Cambio | Efecto |
+|---|---|
+| Guardar la lista de adyacencia dentro de `MixedGraph` (`Map<String, LinkedList<Neighbor>>`) | `neighbors(id)`: O(V + E) → O(d) |
+| Usar `HashSet<String>` para visitados / asentados | `contains`: O(V) → O(1) |
+| Usar `HashMap<String, Double>` para distancias y predecesores | acceso a la tabla: O(V) → O(1) |
+| **Resultado** | BFS y DFS: **O(V + E)** · Dijkstra: **O((V + E) log V)** |
+
+Se mantuvo `LinkedList` por el enfoque didáctico de la asignatura (estructuras enlazadas, `Queue`, `PriorityQueue`) y porque con V = 12 y E = 18 la diferencia no es medible.
+
+## 6. Medición breve y reproducible: pasos de búsqueda ABB vs AVL
+
+La métrica es el **número de comparaciones** que devuelve `search(...).getSteps()` (determinista, no depende de la máquina).
+
+### 6.1 Conjunto de datos del parcial (claves S01…S12 insertadas en orden)
+
+| Clave | S01 | S02 | S03 | S04 | S05 | S06 | S07 | S08 | S09 | S10 | S11 | S12 | **Promedio** |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Pasos ABB | 1 | 2 | 3 | 4 | **5** | 6 | 7 | 8 | 9 | 10 | 11 | 12 | **6.50** |
+| Pasos AVL | 4 | 3 | 4 | 2 | **4** | 3 | 4 | 1 | 3 | 2 | 3 | 4 | **3.08** |
+
+Para Q1 (S05, Hospital Universitario): **ABB 5 pasos** (altura 12) frente a **AVL 4 pasos** (altura 4).
+
+### 6.2 Crecimiento con claves ordenadas (peor caso del ABB)
+
+| n | Altura ABB | Pasos ABB (clave máxima) | Altura AVL | Pasos AVL (clave máxima) |
+|---|---|---|---|---|
+| 100 | 100 | 100 | 7 | 7 |
+| 1 000 | 1 000 | 1 000 | 10 | 10 |
+| 5 000 | 5 000 | 5 000 | 13 | 13 |
+
+El ABB crece de forma lineal (O(n)) y el AVL de forma logarítmica (≈ log₂ n), confirmando la tabla de la sección 1.
+
+### 6.3 Cómo reproducirla
+
+Desde la clase principal, menú **6 → Q1**, o agregando temporalmente un `main` de prueba:
+
+```java
+BinarySearchTree<Integer, String> abb = new BinarySearchTree<>();
+AvlTree<Integer, String> avl = new AvlTree<>();
+for (int i = 1; i <= 1000; i++) { abb.insert(i, "x"); avl.insert(i, "x"); }
+System.out.println("ABB: altura " + abb.height() + ", pasos " + abb.search(1000).getSteps());
+System.out.println("AVL: altura " + avl.height() + ", pasos " + avl.search(1000).getSteps());
+// ABB: altura 1000, pasos 1000
+// AVL: altura 10,   pasos 10
+```
+
+> Nota: con n muy grande, el ABB degenerado puede desbordar la pila por la recursión de `insert`/`height`; con n ≤ 5 000 funciona con la pila por defecto o con `-Xss16m`.
+
+
 Los factores adicionales de V frente al óptimo teórico (O(V + E) en BFS/DFS y O((V + E) log V) en Dijkstra) provienen de usar `LinkedList` como estructura de visitados y de buscar vecinos recorriendo la lista de conexiones. Es una decisión consciente, explicada en [Decisiones de diseño](#decisiones-de-diseño); con V = 12 y E = 18 el costo es despreciable.
+
+
 
 ## Pruebas
 
@@ -413,6 +520,87 @@ JUnit 5 — **25 pruebas** en dos clases:
 |---|---|---|
 | `TreesTest` | 12 | ABB (recorridos, altura, búsqueda con conteo de pasos, eliminación con dos hijos, degeneración a lista), AVL (rotaciones LL/RR/LR/RL, balance con claves ordenadas, eliminación, comparación de alturas), claves nulas |
 | `MixedGraphTest` | 13 | Conjunto de datos (12 + 18), orientación de arcos y aristas, bloqueo, eliminar vértice/conexión, vértice inexistente, IDs duplicados, pesos inválidos (0, negativo, NaN, ∞), IDs vacíos y nulos |
+
+# Pruebas
+
+Framework: **JUnit 5** (`junit-jupiter`), ejecutado con `maven-surefire-plugin`.
+
+```bash
+mvn test                              # todas las pruebas
+mvn test -Dtest=TreesTest             # una clase
+mvn test -Dtest=MixedGraphTest#duplicateIdsThrow   # una prueba
+```
+
+Ubicación: `src/test/java/co/edu/redsegura/pruebas/`.
+
+## Inventario (25 pruebas)
+
+### `TreesTest` — 12 pruebas
+
+| Prueba | Verifica |
+|---|---|
+| `bstTraversalsAndHeight` | `inOrder`, `preOrder`, `postOrder` y altura 3 de un ABB de 7 claves |
+| `bstSearchCountsSteps` | `search` cuenta pasos; encuentra / no encuentra |
+| `bstDeleteNodeWithTwoChildren` | Eliminar la raíz (dos hijos) conserva el orden |
+| `bstSequentialInsertDegeneratesToHeightN` | Claves ordenadas → altura n (5) |
+| `avlRotationLL` | 30, 20, 10 → `[20, 10, 30]` |
+| `avlRotationRR` | 10, 20, 30 → `[20, 10, 30]` |
+| `avlRotationLR` | 30, 10, 20 → `[20, 10, 30]` |
+| `avlRotationRL` | 10, 30, 20 → `[20, 10, 30]` |
+| `avlStaysBalancedOnSequentialInsert` | 7 claves ordenadas → altura 3 (un ABB daría 7) |
+| `avlDeleteKeepsOrderAndBalance` | Tras eliminar, el orden y el balance se conservan |
+| `avlIsShallowerThanBstOnSortedKeys` | 8 claves ordenadas: ABB altura 8, AVL altura 4 |
+| `nullKeyIsRejectedOnInsert` | Clave nula → `IllegalArgumentException` |
+
+### `MixedGraphTest` — 13 pruebas
+
+| Categoría | Prueba | Verifica |
+|---|---|---|
+| Normales | `datasetHas12VerticesAnd18Edges` | La fábrica crea 12 vértices y 18 conexiones |
+| | `directedEdgeIsOnlyUsedFromOriginToDestination` | Arco A→B: vecino de A, no de B |
+| | `undirectedEdgeIsUsedInBothDirections` | Arista A—B: vecino en ambos sentidos |
+| | `blockedEdgeIsIgnoredByNeighbors` | Bloquear / desbloquear una conexión |
+| Eliminar | `removeVertexAlsoRemovesItsEdges` | S09 tiene 6 conexiones (R03, R07, R08, R12, R15, R17) |
+| | `removeEdgeDeletesItPermanently` | La conexión eliminada ya no existe |
+| Inexistentes y duplicados | `unknownVertexThrows` | `VertexNotFoundException` en `neighbors`, `getvertex`, `removeVertex` |
+| | `edgeWithUnknownEndpointThrows` | Origen o destino inexistente |
+| | `duplicateIdsThrow` | `DuplicateIdException` en vértices y conexiones |
+| | `removeUnknownEdgeThrows` | Eliminar una conexión que no existe |
+| Pesos inválidos | `invalidWeightsAreRejected` | 0, −3, NaN y ∞ → `InvalidWeightException` |
+| | `emptyIdsAreRejected` | ID vacío o nulo |
+| | `nullInputsAreRejected` | `addVertex(null)`, `addEdge(null)` |
+
+## Evidencia de ejecución
+
+Pegar aquí la salida de `mvn test` después de ejecutarla en el clon limpio, por ejemplo:
+
+```text
+[INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0 -- in co.edu.redsegura.pruebas.TreesTest
+[INFO] Tests run: 13, Failures: 0, Errors: 0, Skipped: 0 -- in co.edu.redsegura.pruebas.MixedGraphTest
+[INFO] Tests run: 25, Failures: 0, Errors: 0, Skipped: 0
+[INFO] BUILD SUCCESS
+```
+
+> Los resultados anteriores son el formato esperado, no una captura real: sustitúyelos por la salida obtenida en tu máquina antes de entregar.
+
+## Cobertura frente a lo pedido en el parcial
+
+| Caso exigido | Estado |
+|---|---|
+| Casos normales | ✔ árboles y grafo |
+| Vértice inexistente | ✔ `MixedGraphTest` |
+| Pesos inválidos | ✔ `MixedGraphTest` |
+| IDs duplicados | ✔ `MixedGraphTest` |
+| Grafo desconectado | ⏳ pendiente (BFS/DFS/Dijkstra con vértices aislados) |
+| BFS / DFS / Dijkstra | ⏳ pendiente de pruebas JUnit (verificados manualmente: ver [INFORME.md](INFORME.md)) |
+| Representaciones (lista y matrices) | ⏳ pendiente de pruebas JUnit |
+
+### Pruebas sugeridas para completar
+
+- **Dijkstra:** S02→S08 = 24 y ruta `[S02, S01, S07, S08]`; con R16 bloqueada = 24 por `[S02, S01, S09, S10, S08]`; destino inalcanzable → ruta vacía y `∞`; origen inexistente → `VertexNotFoundException`.
+- **BFS:** orden exacto desde S02 y niveles; vértice aislado devuelve solo el origen.
+- **DFS:** orden exacto desde S02; `hasCycle()` en un grafo con y sin ciclos; `weakComponents()` = 1 en el grafo original y 2 si se agrega un vértice aislado.
+- **Representaciones:** `adjacencyMatrix()[S07][S08] = 12`, `[S08][S07] = ∞`; incidencia de R16: S07 = −1, S08 = +1; las tres usan el mismo orden de vértices/conexiones.
 
 ```bash
 mvn test
