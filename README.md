@@ -109,7 +109,211 @@ flowchart LR
     G --> M["modelo<br/>vertex · Edge"]
 ```
 
-`Redsegura` (interfaz) **solo habla con `RedSeguraCore`**. `RedSeguraCore` usa `AvlTree`, `BinarySearchTree` y `MixedGraph`, y el grafo es la base de BFS, DFS, Dijkstra y las representaciones. Ningún módulo lee campos privados de otro: todo pasa por métodos públicos. Más detalle en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
+`Redsegura` (interfaz) **solo habla con `RedSeguraCore`**. `RedSeguraCore` usa `AvlTree`, `BinarySearchTree` y `MixedGraph`, y el grafo es la base de BFS, DFS, Dijkstra y las representaciones.# Arquitectura de RedSegura
+
+## 1. Vista general
+
+RedSegura es una aplicación de consola organizada en cinco paquetes bajo `co.edu.redsegura`:
+
+| Paquete | Responsabilidad |
+|---|---|
+| `app` | Interfaz de usuario (menús, lectura de teclado, impresión). No contiene lógica de negocio. |
+| `nucleo` | `RedSeguraCore`: fachada que integra árboles y grafo. `SincelejoDataFactory`: crea el conjunto de datos del parcial. |
+| `modelo` | Datos básicos: `vertex` (lugar) y `Edge` (conexión) con sus validaciones. |
+| `arboles` | `BinarySearchTree` (ABB) y `AvlTree`, genéricos `<K extends Comparable<K>, V>`. |
+| `grafos` | `MixedGraph` y los algoritmos que operan sobre él: `BreadthFirstSearch`, `DepthFirstSearch`, `DijkstraSolver`, `GraphRepresentations`; más `Neighbor`. |
+| `excepciones` | `DuplicateIdException`, `InvalidWeightException`, `VertexNotFoundException`. |
+
+## 2. Dependencias entre paquetes
+
+```mermaid
+flowchart TD
+    app --> nucleo
+    nucleo --> arboles
+    nucleo --> grafos
+    nucleo --> modelo
+    nucleo --> excepciones
+    grafos --> modelo
+    grafos --> excepciones
+    modelo --> excepciones
+```
+
+Reglas de la integración (contrato del parcial):
+
+- `app` **solo** depende de `nucleo` en la práctica: toda operación pasa por `RedSeguraCore`.
+- `RedSeguraCore` usa `AvlTree`, `BinarySearchTree` y `MixedGraph`.
+- El grafo provee BFS, DFS, Dijkstra y las representaciones. Cada algoritmo recibe el `MixedGraph` por constructor.
+- Ningún módulo accede a campos privados de otro; solo se usan métodos públicos.
+
+## 3. Diagrama de clases
+
+```mermaid
+classDiagram
+    class vertex {
+        -String id
+        -String label
+        -String type
+        +getId() String
+        +getLabel() String
+        +getType() String
+    }
+    class Edge {
+        -String id
+        -String origin
+        -String destination
+        -boolean directed
+        -double weight
+        -String label
+        -boolean blocked
+        +isDirected() boolean
+        +getWeight() double
+        +isBlocked() boolean
+        +setBlocked(boolean)
+    }
+    class Neighbor {
+        -String vertexId
+        -double weight
+        -String edgeId
+    }
+    class MixedGraph {
+        -LinkedList~vertex~ vertices
+        -LinkedList~Edge~ edges
+        +addVertex(vertex)
+        +addEdge(Edge)
+        +removeVertex(String) int
+        +removeEdge(String)
+        +setEdgeBlocked(String, boolean)
+        +neighbors(String) LinkedList~Neighbor~
+        +hasvertex(String) boolean
+    }
+    class GraphRepresentations {
+        +adjacencyList()
+        +adjacencyMatrix()
+        +incidenceMatrix()
+    }
+    class BreadthFirstSearch {
+        +traverse(String) LinkedList~Visit~
+        +order(String)
+        +treeToString(String)
+    }
+    class DepthFirstSearch {
+        +traverse(String) LinkedList~Visit~
+        +traverseAll()
+        +hasCycle() boolean
+        +getCycles()
+        +weakComponents()
+    }
+    class DijkstraSolver {
+        +getShortestPath(String, String)
+        +getShortestDistance(String, String) double
+    }
+    class BinarySearchTree~K,V~ {
+        +insert(K, V)
+        +search(K) SearchResult
+        +delete(K)
+        +height() int
+        +inOrder() / preOrder() / postOrder()
+    }
+    class AvlTree~K,V~ {
+        +insert(K, V)
+        +search(K) SearchResult
+        +delete(K)
+        +height() int
+        +balanceFactor(Node) int
+        +inOrder() / preOrder() / postOrder()
+    }
+    class RedSeguraCore {
+        -MixedGraph graph
+        -BinarySearchTree abb
+        -AvlTree avl
+        +buscarYComparar(String)
+        +describirRepresentaciones()
+        +ejecutarBFS / ejecutarDFS
+        +calcularRutaCorta / calcularDistanciaCorta
+        +bloquearConexion / desbloquearConexion
+        +insertarVertice / eliminarVertice
+        +demostrarRotaciones()
+    }
+    class SincelejoDataFactory {
+        +createGraph() MixedGraph$
+    }
+    class Redsegura {
+        +main(String[])
+        +run()
+    }
+
+    Redsegura --> RedSeguraCore
+    RedSeguraCore --> MixedGraph
+    RedSeguraCore --> BinarySearchTree
+    RedSeguraCore --> AvlTree
+    RedSeguraCore ..> SincelejoDataFactory
+    SincelejoDataFactory ..> MixedGraph
+    MixedGraph "1" o-- "*" vertex
+    MixedGraph "1" o-- "*" Edge
+    MixedGraph ..> Neighbor
+    BreadthFirstSearch --> MixedGraph
+    DepthFirstSearch --> MixedGraph
+    DijkstraSolver --> MixedGraph
+    GraphRepresentations --> MixedGraph
+```
+
+## 4. Responsabilidades clave
+
+### Modelo
+- `vertex(id, label, type)`: inmutable; rechaza campos nulos o vacíos (`IllegalArgumentException`).
+- `Edge(id, origin, destination, directed, weight, label)`: inmutable salvo el indicador `blocked`. Rechaza IDs vacíos y pesos ≤ 0, NaN o infinitos (`InvalidWeightException`).
+
+### MixedGraph
+- Guarda vértices y conexiones en `LinkedList` privadas y entrega **copias** (`getvertices()`, `getEdges()`), de modo que nadie puede modificar el estado interno desde fuera.
+- Valida IDs duplicados (`DuplicateIdException`) y extremos inexistentes (`VertexNotFoundException`) antes de modificar nada.
+- `neighbors(id)` es el **único punto donde se aplica la orientación y el bloqueo**:
+
+  | Conexión | ¿Aparece como vecino de…? |
+  |---|---|
+  | Dirigida A → B | solo de A |
+  | No dirigida A — B | de A y de B |
+  | Bloqueada | de ninguno |
+
+### Algoritmos
+- **BFS**: cola (`Queue<Visit>` sobre `LinkedList`) + lista de visitados. Cada `Visit` guarda vértice, padre y nivel → se imprime como árbol BFS.
+- **DFS**: recursivo. Mantiene dos listas, *en proceso* y *terminados*; un vecino *en proceso* implica ciclo. Registra tiempos de descubrimiento/finalización. `weakComponents()` ignora la orientación.
+- **Dijkstra**: `PriorityQueue<NodeRecord>` ordenada por distancia; tabla de rutas (`distancia`, `previo`) con relajación; el camino se reconstruye siguiendo los predecesores desde el destino. Si el destino es inalcanzable devuelve una lista vacía (y distancia `∞`).
+- **GraphRepresentations**: las tres vistas se construyen con el mismo orden de vértices y de conexiones (el de inserción), por eso coinciden entre sí.
+
+### Árboles
+- **ABB**: inserción, búsqueda (cuenta los pasos), eliminación (sucesor in-order), altura y tres recorridos.
+- **AVL**: añade `height` por nodo, factor de balance y `balance()` que aplica LL, RR, LR o RL tras cada inserción y eliminación.
+
+## 5. Flujo de una consulta (ejemplo Q5)
+
+```mermaid
+sequenceDiagram
+    participant U as Usuario
+    participant A as Redsegura (CLI)
+    participant C as RedSeguraCore
+    participant D as DijkstraSolver
+    participant G as MixedGraph
+    U->>A: Menú 5 → Ruta de control S02→S08
+    A->>C: calcularRutaCorta("S02","S08")
+    C->>D: getShortestPath(...)
+    loop por cada vértice extraído de la PriorityQueue
+        D->>G: neighbors(u)
+        G-->>D: vecinos (orientación y bloqueos aplicados)
+    end
+    D-->>C: [S02, S01, S07, S08]
+    A->>C: calcularDistanciaCorta("S02","S08")
+    C-->>A: 24.0
+    A-->>U: Ruta y costo (24 min)
+```
+
+## 6. Manejo de errores
+
+Las tres excepciones propias heredan de `RuntimeException`. La interfaz envuelve cada opción de menú en un `try/catch (RuntimeException)`, imprime `Error: <mensaje>` y vuelve al menú: el programa nunca termina por un dato inválido (consulta Q7).
+
+## 7. Sincronización grafo ↔ árboles
+
+`RedSeguraCore.insertarVertice` valida primero en el grafo y solo si tiene éxito inserta la clave en ABB y AVL; `eliminarVertice` hace lo mismo en orden inverso. Así, una excepción nunca deja los tres en estados distintos.
+
 
 ## Datos: 12 lugares y 18 conexiones
 
