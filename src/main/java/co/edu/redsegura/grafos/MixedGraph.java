@@ -7,6 +7,7 @@ import co.edu.redsegura.excepciones.DuplicateIdException;
 import co.edu.redsegura.excepciones.VertexNotFoundException;
 import co.edu.redsegura.modelo.Edge;
 import co.edu.redsegura.modelo.vertex;
+import java.util.Iterator;
 import java.util.LinkedList;
 
 /**
@@ -157,8 +158,29 @@ public class MixedGraph {
         return null;
     }
     
+    
+     public int removeVertex(String id) {
+        vertex v = getvertex(id);   // lanza la excepción antes de tocar nada
+        int removed = 0;
+        Iterator<Edge> it = edges.iterator();
+        while (it.hasNext()) {
+            Edge e = it.next();
+            if (e.getOrigin().equals(id) || e.getDestination().equals(id)) {
+                it.remove();
+                removed++;
+            }
+        }
+        vertices.remove(v);
+        return removed;
+    }
+
+    /**
+     * Elimina una conexión definitivamente (distinto de bloquearla).
+     * @throws IllegalArgumentException si la conexión no existe
+     */
+    public void removeEdge(String id) {
+        edges.remove(getEdge(id));
+    }
+    
  
 }
-    
-    
-
