@@ -201,7 +201,7 @@ public class AvlTree<K extends Comparable<K>, V> {
         return node;
     }
 
-    public LinkedList<K> inOrder() {
+   public LinkedList<K> inOrder() {
         LinkedList<K> list = new LinkedList<>();
         inOrderRecursive(root, list);
         return list;
@@ -212,6 +212,34 @@ public class AvlTree<K extends Comparable<K>, V> {
             inOrderRecursive(node.left, list);
             list.add(node.key);
             inOrderRecursive(node.right, list);
+        }
+    }
+
+    public LinkedList<K> preOrder() {
+        LinkedList<K> list = new LinkedList<>();
+        preOrderRecursive(root, list);
+        return list;
+    }
+
+    private void preOrderRecursive(Node<K, V> node, LinkedList<K> list) {
+        if (node != null) {
+            list.add(node.key);
+            preOrderRecursive(node.left, list);
+            preOrderRecursive(node.right, list);
+        }
+    }
+
+    public LinkedList<K> postOrder() {
+        LinkedList<K> list = new LinkedList<>();
+        postOrderRecursive(root, list);
+        return list;
+    }
+
+    private void postOrderRecursive(Node<K, V> node, LinkedList<K> list) {
+        if (node != null) {
+            postOrderRecursive(node.left, list);
+            postOrderRecursive(node.right, list);
+            list.add(node.key);
         }
     }
 }
